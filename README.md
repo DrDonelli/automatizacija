@@ -1,2 +1,2 @@
-# automatizacija
+# Automatizacija
 Ansible playbook i bash skripte
