@@ -15,7 +15,7 @@
     - name: Kreiranje defaultne stranice
       copy:
         dest: /usr/share/nginx/html/index.html
-        content: "Ovo je defaultna stranica studenta ime prezime"
+        content: "Ovo je defaultna stranica studenta Roko Donelli"
         owner: nginx
         group: nginx
         mode: '0644'
@@ -32,7 +32,7 @@
     - name: Kreiranje stranice algebra.hr
       copy:
         dest: /var/www/algebra/index.html
-        content: "Ovo je Algebrina stranica koju je kreirao student ime prezime"
+        content: "Ovo je Algebrina stranica koju je kreirao student Roko Donelli"
         owner: nginx
         group: nginx
         mode: '0644'
