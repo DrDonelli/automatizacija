@@ -1,0 +1,57 @@
+#!/bin/bash
+
+echo ""
+echo "================================="
+echo ""
+
+# FQDN
+FQDN=$(hostname -f)
+echo "FQDN: $FQDN"
+
+echo ""
+
+# OS Version
+OS_VERSION=$(grep '^PRETTY_NAME' /etc/os-release | cut -d'=' -f2 | tr -d '"')
+echo "OS Version: $OS_VERSION"
+
+echo ""
+
+# Broj CPU Coreova
+CPU_CORES=$(nproc)
+echo "CPU Cores: $CPU_CORES"
+
+echo ""
+
+#RAM
+TOTAL_RAM=$(free -h | grep Mem | awk '{print $2}')
+FREE_RAM=$(free -h | grep Mem | awk '{print $4}')
+echo "RAM: $FREE_RAM/$TOTAL_RAM"
+
+echo ""
+
+# Disk
+
+WARNING=""
+
+echo "Disk Usage:"
+
+# Loop kroz sve diskove
+
+for disk in $(lsblk -d -n -o NAME); do
+    # Get the total size, used, and available space of the disk
+    DISK_SIZE=$(lsblk /dev/$disk -o SIZE -n)
+    DISK_FREE=$(df -BG /dev/$disk | tail -1 | awk '{print $4}' | sed 's/G//')
+    DISK_USED=$(df -BG /dev/$disk | tail -1 | awk '{print $3}' | sed 's/G//')
+    DISK_TOTAL=$(df -BG /dev/$disk | tail -1 | awk '{print $2}' | sed 's/G//')
+
+    # Calculate free space percentage
+    DISK_FREE_PERCENT=$(( 100 * DISK_FREE / DISK_TOTAL ))
+
+    # Output the disk information
+    echo -e "  Disk: /dev/$disk"
+    echo -e "    Size: $DISK_SIZE"
+    echo -e "    Free Space: ${DISK_FREE}GB"
+    echo -e "    Used Space: ${DISK_USED}GB"
+    echo -e "    Free Space (%): ${DISK_FREE_PERCENT}%"
+    echo
+done
