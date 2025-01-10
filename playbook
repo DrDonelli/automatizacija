@@ -1,0 +1,106 @@
+---
+- name: Instalacija i konfiguracija Nginx poslužitelja na CentOS 9
+  hosts: /PROJEKT/ansible/inventory/inventory
+  become: true
+  tasks:
+
+    # Instalacija Nginx-a
+    - name: Instalacija Nginx-a
+      dnf:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    # Konfiguracija defaultne stranice
+    - name: Kreiranje defaultne stranice
+      copy:
+        dest: /usr/share/nginx/html/index.html
+        content: "Ovo je defaultna stranica studenta ime prezime"
+        owner: nginx
+        group: nginx
+        mode: '0644'
+
+    # Konfiguracija stranice za algebra.hr
+    - name: Kreiranje direktorija za algebra.hr
+      file:
+        path: /var/www/algebra
+        state: directory
+        owner: nginx
+        group: nginx
+        mode: '0755'
+
+    - name: Kreiranje stranice algebra.hr
+      copy:
+        dest: /var/www/algebra/index.html
+        content: "Ovo je Algebrina stranica koju je kreirao student ime prezime"
+        owner: nginx
+        group: nginx
+        mode: '0644'
+
+    # Konfiguracija Nginx virtualnog hosta za algebra.hr
+    - name: Kreiranje Nginx konfiguracije za algebra.hr
+      template:
+        src: algebrasite
+        dest: /etc/nginx/conf.d/algebra.conf
+      notify:
+        - Reload nginx
+
+    # Generiranje self-signed certifikata za algebra.hr
+    - name: Provjera ističe li certifikat za manje od 5 dana
+      stat:
+        path: /etc/nginx/ssl/algebra.crt
+      register: cert_stat
+      ignore_errors: true
+
+    - name: Kreiranje SSC
+      shell: |
+        mkdir -p /etc/nginx/ssl
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/ssl/algebra.key -out /etc/nginx/ssl/algebra.crt -subj "/C=HR/ST=Grad/L=Grad/O=Algebra/CN=algebra.hr"
+      when: cert_stat.stat.exists == false
+
+    - name: Obnavljanje certifikata
+      shell: |
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/ssl/algebra.key -out /etc/nginx/ssl/algebra.crt -subj "/C=HR/ST=Grad/L=Grad/O=Algebra/CN=algebra.hr"
+      when: cert_stat.stat.exists == true
+      register: cert_expiration
+      failed_when: false
+
+    - name: Provjera datuma isteka
+      command: openssl x509 -enddate -noout -in /etc/nginx/ssl/algebra.crt
+      register: cert_expiration
+      failed_when: false
+
+    - name: Obnavljanje certifikata ako ističe za manje od 5 dana
+      shell: |
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/ssl/algebra.key -out /etc/nginx/ssl/algebra.crt -subj "/C=HR/ST=Grad/L=Grad/O=Algebra/CN=algebra.hr"
+      when: cert_expiration.stdout | regex_search("notAfter=(.*)") and (cert_expiration.stdout | regex_search("notAfter=(.*)") | to_datetime('%b %d %H:%M:%S %Y %Z')).date() < (ansible_date_time.date | to_datetim>
+
+    # Konfiguracija vatrozida
+    - name: Omogućavanje HTTP, HTTPS i SSH na firewalld
+      firewalld:
+        service: "{{ item }}"
+        permanent: true
+        state: enabled
+      loop:
+        - 'ssh'
+        - 'http'
+        - 'https'
+      notify:
+        - Reload firewalld
+
+    # Pokretanje i omogućavanje Nginx servisa
+    - name: Pokretanje i omogućavanje Nginx servisa
+      systemd:
+        name: nginx
+        enabled: true
+        state: started
+
+  handlers:
+    - name: Reload nginx
+      service:
+        name: nginx
+        state: reloaded
+
+    - name: Reload firewalld
+      command: firewall-cmd --reload
+
