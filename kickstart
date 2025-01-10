@@ -1,0 +1,61 @@
+# Instalacijski parametri
+graphical
+repo --name="AppStream" --baseurl=file:///run/install/sources/mount-0000-cdrom/AppStream
+
+%addon com_redhat_kdump --disable
+
+%end
+lang hr_HR.UTF-8
+keyboard hr
+
+# Postavljanje mreže
+network  --bootproto=dhcp --device=ens192 --ipv6=auto --activate
+network  --hostname=localhost.localdomain
+firewall --disabled
+selinux --disabled
+
+#Instalacija paketa
+%packages
+@^graphical-server-environment
+
+%end
+
+# Setup Agent na prvom bootu
+firstboot --enable
+
+#Postavljanje diskova
+ignoredisk --only-use=sda
+autopart
+
+#Micanje particija
+clearpart --none --initlabel
+
+
+#Postavljanje vremena
+timesource --ntp-server=dc01.vua.cloud
+timesource --ntp-server=dc02.vua.cloud
+timezone Europe/Zagreb --utc
+
+# Root lozinka
+rootpw --iscrypted $1$randomsalt$1$g24F83ge$9JRUfv9T4VXLUVzx8yfGq/
+
+# Dodavanje korisnika ansible
+user --name=ansible --password='$1$randomsalt$g24F83ge$9JRUfv9T4VXLUVzx8yfGq/' --iscrypted --gecos="Ansible User" --shell=/bin/bash --groups=ansible
+
+# Omogućavanje SSH pristupa za korisnika ansible
+sshkey --username=ansible --key="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC6maIzRWIbhr/A8vPZDsIdjB3eD4LNen0/RS2DCPvPQJKaTUhpLiHouJ4zfX2eaFA/1xtSk571vnr6hmddwzNAOePx/caFrNZejLOzLmyowY+uEr179Fb3MEzXHzJYjIgOvwBWeBAx2v>
+
+
+# Omogućavanje passwordless sudo
+
+# Postavljanje firewall pravila za pristup iz management subnet-a
+# Pretpostavljamo da je subnet 192.168.1.0/24, zamijenite sa vašim subnetom
+
+%post
+install \
+    -o root -g root -m400 \
+    <(echo -e '%wheel\tALL=(ALL)\tNOPASSWD: ALL') \
+    /etc/sudoers.d/freewheelers
+firewall-cmd --zone=public --add-source=192.168.1.0/24 --permanent
+firewall-cmd --reload
+%end
